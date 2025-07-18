@@ -54,10 +54,25 @@ public class JwtService implements CommandLineRunner {
     }
 
     /*
+     * Extract a specific claim using a function
+     */
+    private <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        final Claims claims = extractPayload(token);
+        return claimsResolver.apply(claims);
+    }
+
+    /*
+     * Extract subject (username/email)
+     */
+    private String extractEmail(String token) {
+        return extractClaim(token, Claims::getSubject);
+    }
+
+    /*
      * Extract expiration from token
      */
     private Date extractExpiration(String token) {
-        return extractPayload(token).getExpiration();
+        return extractClaim(token, Claims::getExpiration);
     }
 
     /*
@@ -79,6 +94,14 @@ public class JwtService implements CommandLineRunner {
     }
 
     /*
+     * Extract a specific payload value from the token
+     */
+    private Object extractPayload(String token, String payloadKey) {
+        Claims claim = extractPayload(token);
+        return claim.get(payloadKey);
+    }
+
+    /*
      * Run on app start for testing
      */
     public void run(String... args) throws Exception {
@@ -92,5 +115,7 @@ public class JwtService implements CommandLineRunner {
         // Validation test
         System.out.println("Is Valid: " + validateToken(result));
         System.out.println("Expiration: " + extractExpiration(result));
+        System.out.println("Extracted Email: " + extractEmail(result));
+        System.out.println("Payload (email): " + extractPayload(result, "email"));
     }
 }
