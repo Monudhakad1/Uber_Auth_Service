@@ -22,9 +22,5 @@ public class AuthController {
         return new ResponseEntity<>(response ,HttpStatus.CREATED);
     }
 
-    @GetMapping ("/signin")
-    public ResponseEntity<?> signUp() {
 
-        return new ResponseEntity<>(10 ,HttpStatus.CREATED);
-    }
 }
