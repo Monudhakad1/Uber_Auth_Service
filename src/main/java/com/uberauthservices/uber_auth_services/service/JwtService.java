@@ -26,9 +26,9 @@ public class JwtService implements CommandLineRunner {
     @Value("${jwt.secret}")  // should be at least 32 chars for HMAC-SHA256
     private String SECRET;
 
-    /*
-     * Generate JWT Token with custom payload and subject (username)
-     */
+
+     //Generate JWT Token with custom payload and subject (username)
+
     private String createToken(Map<String, Object> payload, String username) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expiry * 1000L);  // expiry in milliseconds
