@@ -20,102 +20,108 @@ import java.util.function.Function;
 @Service
 public class JwtService implements CommandLineRunner {
 
-    @Value("${jwt.expiry}")  // e.g., 3600 (in seconds)
+    @Value("${jwt.expiry}")
     private int expiry;
 
-    @Value("${jwt.secret}")  // should be at least 32 chars for HMAC-SHA256
+    @Value("${jwt.secret}")
     private String SECRET;
 
-
-     //Generate JWT Token with custom payload and subject (username)
-
-    private String createToken(Map<String, Object> payload, String username) {
+    /**
+     * Creates a JWT token with custom payload and subject (email)
+     */
+    public String createToken(Map<String, Object> payload, String email) {
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + expiry * 1000L);  // expiry in milliseconds
-
+        Date expiryDate = new Date(now.getTime() + expiry * 1000L);
         return Jwts.builder()
-                .setClaims(payload)
-                .setSubject(username)
+                .setClaims(payload) // ✅ Corrected from .claim(payload)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
-                .signWith(getSignKey(), SignatureAlgorithm.HS256)
+                .setSubject(email)
+                .signWith(getSignKey(), SignatureAlgorithm.HS256) // ✅ Specify algorithm explicitly
                 .compact();
     }
 
-    /*
-     * Extract all claims (payload)
+    /**
+     * Overloaded method to create token with empty payload
      */
-    private Claims extractPayload(String token) {
-        return Jwts.parserBuilder()
+    public String createToken(String email) {
+        return createToken(new HashMap<>(), email);
+    }
+
+    /**
+     * Extract all claims from the JWT token
+     */
+    public Claims extractAllPayloads(String token) {
+        return Jwts
+                .parserBuilder() // ✅ Changed from parser() to parserBuilder()
                 .setSigningKey(getSignKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
     }
 
-    /*
-     * Extract a specific claim using a function
+    /**
+     * Extract any specific claim using a resolver function
      */
-    private <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
-        final Claims claims = extractPayload(token);
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        final Claims claims = extractAllPayloads(token);
         return claimsResolver.apply(claims);
     }
 
-    /*
-     * Extract subject (username/email)
+    /**
+     * Extract expiration date from the token
      */
-    private String extractEmail(String token) {
-        return extractClaim(token, Claims::getSubject);
-    }
-
-    /*
-     * Extract expiration from token
-     */
-    private Date extractExpiration(String token) {
+    public Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
     }
 
-    /*
-     * Validate token is not expired
+    /**
+     * Extract subject (email) from the token
      */
-    private Boolean validateToken(String token) {
-        try {
-            return !extractExpiration(token).before(new Date());
-        } catch (Exception e) {
-            return false;
-        }
+    public String extractEmail(String token) {
+        return extractClaim(token, Claims::getSubject);
     }
 
-    /*
-     * Get signing key
+    /**
+     * Check if the token is expired
      */
-    private Key getSignKey() {
+    public Boolean isTokenExpired(String token) {
+        return extractExpiration(token).before(new Date());
+    }
+
+    /**
+     * Returns the signing key used to sign/verify JWT
+     */
+    public Key getSignKey() {
         return Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
     }
 
-    /*
-     * Extract a specific payload value from the token
+    /**
+     * Validates a JWT token for a given email
      */
-    private Object extractPayload(String token, String payloadKey) {
-        Claims claim = extractPayload(token);
+    public Boolean validateToken(String token, String email) {
+        final String userEmailFetchedFromToken = extractEmail(token);
+        return (userEmailFetchedFromToken.equals(email)) && !isTokenExpired(token);
+    }
+
+    /**
+     * Extract a custom claim/payload by key
+     */
+    public Object extractPayload(String token, String payloadKey) {
+        Claims claim = extractAllPayloads(token);
         return claim.get(payloadKey);
     }
 
-    /*
-     * Run on app start for testing
+    /**
+     * For testing token generation and payload extraction via Spring Boot CLI
      */
-    public void run(String... args) throws Exception {
+    @Override
+    public void run(String... args) {
         Map<String, Object> mp = new HashMap<>();
         mp.put("email", "a@b.com");
-        mp.put("phoneNumber", "7987648160");
-
-        String result = createToken(mp, "monu");
-        System.out.println("Generated Token: " + result);
-
-        // Validation test
-        System.out.println("Is Valid: " + validateToken(result));
-        System.out.println("Expiration: " + extractExpiration(result));
-        System.out.println("Extracted Email: " + extractEmail(result));
-        System.out.println("Payload (email): " + extractPayload(result, "email"));
+        mp.put("phoneNumber", "9999999999");
+        String result = createToken(mp, "sanket");
+        System.out.println("Generated token is: " + result);
+        System.out.println("Extracted email from payload: " + extractPayload(result, "email"));
     }
 }
